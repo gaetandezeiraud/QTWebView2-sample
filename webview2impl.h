@@ -39,9 +39,7 @@ private:
     Microsoft::WRL::ComPtr<ICoreWebView2Controller> _webViewController;
 
     std::atomic<WebView2ImplState> _state{WebView2ImplState::Empty};
-
     Dispatcher _dispatcher;
-    std::mutex _dispatcherMutex;
 };
 
 #endif // WEBVIEW2IMPL_H
