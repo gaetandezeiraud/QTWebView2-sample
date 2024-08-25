@@ -37,6 +37,12 @@ public:
         return _workQueue.empty();
     }
 
+    void Clear()
+    {
+        std::lock_guard<std::mutex> lock(_queueMutex);
+       _workQueue = {};
+    }
+
     int Count()
     {
         std::lock_guard<std::mutex> lock(_queueMutex);
