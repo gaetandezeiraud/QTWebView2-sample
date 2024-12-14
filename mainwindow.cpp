@@ -13,6 +13,12 @@ MainWindow::MainWindow(QWidget *parent)
     auto webView = new QWebView2(this);
     webView->setUrl("https://www.bing.com/");
 
+    connect(webView, &QWebView2::navigationCompleted, this, [this]() {
+        // Do something here like
+        //_viewPDFGenerator->GetWebView()->postWebMessageAsJson("your-message");
+        // or  _viewPDFGenerator->GetWebView()->printToPdf(...)
+    });
+
     setCentralWidget(webView);
 }
 

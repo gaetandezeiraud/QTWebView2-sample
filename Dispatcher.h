@@ -40,7 +40,7 @@ public:
     void Clear()
     {
         std::lock_guard<std::mutex> lock(_queueMutex);
-       _workQueue = {};
+        _workQueue = {};
     }
 
     int Count()

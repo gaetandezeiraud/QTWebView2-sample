@@ -4,6 +4,8 @@
 #include <Windows.h>
 
 #include <wrl.h>
+#include <wil/com.h>
+#include <QDebug>
 
 using namespace Microsoft::WRL;
 
@@ -42,12 +44,6 @@ WebView2Impl::WebView2Impl(unsigned long long windowId)
             }).Get());
 }
 
-WebView2Impl::~WebView2Impl()
-{
-    _webView->Release();
-    _webViewController->Release();
-}
-
 void WebView2Impl::destroy()
 {
     _state.store(WebView2ImplState::Failed);
@@ -77,6 +73,48 @@ void WebView2Impl::resize(int top, int left, int right, int bottom)
     }
 }
 
+void WebView2Impl::postWebMessageAsJson(const QString& str)
+{
+    switch (_state.load())
+    {
+    case WebView2ImplState::Loaded:
+        _webView->PostWebMessageAsJson(str.toStdWString().c_str());
+        break;
+    case WebView2ImplState::Empty:
+        _dispatcher.Invoke([&, str]() { _webView->PostWebMessageAsJson(str.toStdWString().c_str()); });
+        break;
+    default:
+        break;
+    }
+}
+
+void WebView2Impl::setVirtualHostNameToFolderMappingInternal(const QString& domain, const QString& folderPath)
+{
+    wil::com_ptr<ICoreWebView2_3> webview2_3;
+    _webView->QueryInterface(IID_PPV_ARGS(&webview2_3));
+    if (webview2_3)
+    {
+        webview2_3->SetVirtualHostNameToFolderMapping(domain.toStdWString().c_str(),
+                                                    folderPath.toStdWString().c_str(),
+                                                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+    }
+}
+
+void WebView2Impl::setVirtualHostNameToFolderMapping(const QString& domain, const QString& folderPath)
+{
+    switch (_state.load())
+    {
+    case WebView2ImplState::Loaded:
+        setVirtualHostNameToFolderMappingInternal(domain, folderPath);
+        break;
+    case WebView2ImplState::Empty:
+        _dispatcher.Invoke([&, domain, folderPath]() { setVirtualHostNameToFolderMappingInternal(domain, folderPath); });
+        break;
+    default:
+        break;
+    }
+}
+
 void WebView2Impl::navigate(const QString& url)
 {
     switch (_state.load())
@@ -86,6 +124,33 @@ void WebView2Impl::navigate(const QString& url)
         break;
     case WebView2ImplState::Empty:
         _dispatcher.Invoke([&, url]() { _webView->Navigate(url.toStdWString().c_str()); });
+        break;
+    default:
+        break;
+    }
+}
+
+void WebView2Impl::addNavigationCompletedInternal(std::function<void()> callback)
+{
+    _webView->add_NavigationCompleted(
+        Callback<ICoreWebView2NavigationCompletedEventHandler>(
+            [this, callback](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                callback();
+                return S_OK;
+            }).Get(),
+        nullptr
+    );
+}
+
+void WebView2Impl::addNavigationCompleted(std::function<void()> callback)
+{
+    switch (_state.load())
+    {
+    case WebView2ImplState::Loaded:
+        addNavigationCompletedInternal(callback);
+        break;
+    case WebView2ImplState::Empty:
+        _dispatcher.Invoke([&, callback]() { addNavigationCompletedInternal(callback); });
         break;
     default:
         break;
@@ -102,6 +167,25 @@ void WebView2Impl::goBack()
 {
     if (_webView.Get())
         _webView->GoBack();
+}
+
+void WebView2Impl::printToPdf(const QString& outputPath, std::function<void(bool)> pdfCallback)
+{
+    if (_webView.Get())
+    {
+        wil::com_ptr<ICoreWebView2_7> webview2_7;
+        _webView->QueryInterface(IID_PPV_ARGS(&webview2_7));
+        if (webview2_7)
+        {
+            webview2_7->PrintToPdf(outputPath.toStdWString().c_str(), nullptr,
+                Callback<ICoreWebView2PrintToPdfCompletedHandler>(
+                [this, pdfCallback](HRESULT errorCode, BOOL isSuccessful) -> HRESULT {
+                    pdfCallback(isSuccessful);
+                    return S_OK;
+                }).Get()
+            );
+        }
+    }
 }
 
 void WebView2Impl::show()
@@ -132,4 +216,14 @@ void WebView2Impl::hide()
     default:
         break;
     }
+}
+
+Microsoft::WRL::ComPtr<ICoreWebView2> WebView2Impl::getWebView()
+{
+    return _webView;
+}
+
+Microsoft::WRL::ComPtr<ICoreWebView2Controller> WebView2Impl::getWebViewController()
+{
+    return _webViewController;
 }

@@ -12,10 +12,17 @@ public:
     virtual ~QWebView2();
 
 public Q_SLOTS:
-    void openDevToolsWindow();
+    void postWebMessageAsJson(const QString& str);
+    void setVirtualHostNameToFolderMapping(const QString& domain, const QString& folderPath);
     void setUrl(const QString& url);
     void goForward();
     void goBack();
+    void printToPdf(const QString& outputPath, std::function<void(bool)> pdfCallback);
+
+    WebView2Impl* getWebViewImpl();
+
+signals:
+    void navigationCompleted();
 
 protected:
     void resize();

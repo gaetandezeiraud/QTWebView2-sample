@@ -5,6 +5,9 @@
 QWebView2::QWebView2(QWidget* parent)
 {
     _view = new WebView2Impl(parent->winId());
+    _view->addNavigationCompleted([this]() {
+        emit navigationCompleted();
+    });
 }
 
 QWebView2::~QWebView2()
@@ -16,9 +19,16 @@ QWebView2::~QWebView2()
     }
 }
 
-void QWebView2::openDevToolsWindow()
+void QWebView2::postWebMessageAsJson(const QString& str)
 {
+    if (_view)
+        _view->postWebMessageAsJson(str);
+}
 
+void QWebView2::setVirtualHostNameToFolderMapping(const QString& domain, const QString& folderPath)
+{
+    if (_view)
+        _view->setVirtualHostNameToFolderMapping(domain, folderPath);
 }
 
 void QWebView2::setUrl(const QString& url)
@@ -37,6 +47,17 @@ void QWebView2::goBack()
 {
     if (_view)
         _view->goBack();
+}
+
+void QWebView2::printToPdf(const QString& outputPath, std::function<void(bool)> pdfCallback)
+{
+    if (_view)
+        _view->printToPdf(outputPath, pdfCallback);
+}
+
+WebView2Impl* QWebView2::getWebViewImpl()
+{
+    return _view;
 }
 
 void QWebView2::resize()
